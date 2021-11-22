@@ -19,6 +19,9 @@ FixedStepClassifier is a version of classifier that remembers a different
 distribution for the errors of each timestep. It does this by assuming that
 the training data used for fitting is representative of a complete cycle
 
+When you are satisfied with a created model you can save it into a JSON using
+myClassifier.save(filePath) and reload it using Classifier.load(filePath)
+
 Even though it's supposed to be a capstone it's not all that impressive
 
 
