@@ -23,4 +23,4 @@ Even though it's supposed to be a capstone it's not all that impressive
 
 
 REQUIREMENTS
-tensorflow
+tensorflow 2.7.0 and all associated dependencies
