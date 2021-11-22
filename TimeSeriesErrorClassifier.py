@@ -105,8 +105,8 @@ class Predictor(tf.keras.Model):
 def distStat(values, mean, invcov):
     #flatten the values if necessary
     # print(mean)
-    if len(values.shape) > len(mean.shape) + 1:
-        values = tf.reshape(values, (-1, mean.shape[-1]))
+    # if len(values.shape) > len(mean.shape) + 1:
+    #     values = tf.reshape(values, (-1, mean.shape[-1]))
     diff = values - mean
     #have to add a single dim to the end so that dot product works
     #also invcov may be very small, so use doubles for it
@@ -162,6 +162,12 @@ class Classifier:
         self.mean, cov = getGaussian(errors, flatten = True)
 
         self.invcov = tf.linalg.pinv(cov).numpy()
+    def setThreshold(self, errors):
+        if self.useQuantiles:
+            d2 = distStat(errors, self.mean, self.invcov)
+            self.threshold = np.quantile(d2, 1-self.sigLevel, axis = None)
+        else:
+            self.threshold = chi2.ppf(1-self.sigLevel, nFeatures)
 
     def fitModel(self, trainData, valData=None, doWarmup = True, **kwargs):
         """
@@ -195,11 +201,7 @@ class Classifier:
 
         self.storeDistribution(errors)
 
-        if self.useQuantiles:
-            d2 = distStat(errors, self.mean, self.invcov)
-            self.threshold = np.quantile(d2, 1-self.sigLevel, axis = 0)
-        else:
-            self.threshold = chi2.ppf(1-self.sigLevel, nFeatures)
+        self.setThreshold(errors)
 
         self.fitted = True
         #stor weights
@@ -313,7 +315,7 @@ class Classifier:
         self.last = data[:, -self.windowsize:, :]
 
         d2 = distStat(errors, self.mean, self.invcov)
-        return np.where(d2 > self.threshold, 1, 0).reshape(-1)
+        return np.where(d2 > self.threshold, 1, 0).reshape(d2.shape[:2])
 
     pass
 #Like the classifier byt
@@ -341,6 +343,13 @@ class FixedStepClassifier(Classifier):
     def storeDistribution(self, errors):
         self.mean, cov = getGaussian(errors, flatten = False)
         self.invcov = tf.linalg.pinv(cov).numpy()
+    #same as classifier but without dimensiuon flatening
+    def setThreshold(self, errors):
+        if self.useQuantiles:
+            d2 = distStat(errors, self.mean, self.invcov)
+            self.threshold = np.quantile(d2, 1-self.sigLevel, axis = 0)
+        else:
+            self.threshold = chi2.ppf(1-self.sigLevel, nFeatures)
     def load(modelFile):
         self = FixedStepClassifier()
         self.loadBase(modelFile)
@@ -364,11 +373,10 @@ class FixedStepClassifier(Classifier):
         inStates = [tf.constant(self.hidden), tf.constant(self.context)]
         preds, self.hidden, self.context = self.model(inputs, inStates, False)
         errors = labels-preds
-        print(labels.shape, preds.shape)
         self.last = data[:, -self.windowsize:, :]
 
         d2 = distStat(errors, self.mean, self.invcov)
-        return np.where(d2 > self.threshold, 1, 0).reshape(-1)
+        return np.where(d2 > self.threshold, 1, 0).reshape(d2.shape[:2])
 
 
 if __name__ == "__main__":
