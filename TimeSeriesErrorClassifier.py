@@ -19,7 +19,7 @@ def makeWindow(data, window = 1):
 def getGaussian(errors, flatten = False):
     #flattening brings timesteps into batch dim, so we only get 1 distribution
     if flatten:
-        errors = errors.reshape((-1, errors.shape[-1]))
+        errors = np.array(errors).reshape((-1, errors.shape[-1]))
         mean = np.mean(errors, axis = 0)
         return (
             mean, np.array(np.cov(errors, rowvar = False))
@@ -77,7 +77,9 @@ class Predictor(tf.keras.Model):
         x = self.drop(x, training = training)
         x = self.dense(x, training = training)
         return (self.batch(x, training = training), b, c)
-
+    def predict(self, inputs):
+        x, h, c = self.call(inputs)
+        return x
     #copied from tensorflow docs
     def train_step(self, data):
         # Unpack the data. Its structure depends on your model and
@@ -196,7 +198,7 @@ class Classifier:
         valInp = makeWindow(valData[:, :-1, :], self.windowsize)
         valLab = valData[:, self.windowsize:, :]
 
-        preds, h, c = self.model.predict(valInp)
+        preds= self.model.predict(valInp)
         errors = valLab - preds
 
         self.storeDistribution(errors)
@@ -204,6 +206,8 @@ class Classifier:
         self.setThreshold(errors)
 
         self.fitted = True
+        #in the case of refitting, we need to to warm up the model again
+        self.built = False
         #stor weights
         # self.tempWeights = tempModel.get_weights()
         if doWarmup:
@@ -220,7 +224,7 @@ class Classifier:
         # del self.model
         # self.model = Predictor(outputFeats)
         # self.model.build(batchShape)
-        drop, self.hidden, self.context = self.model.predict(winInputs)
+        drop, self.hidden, self.context = self.model.call(winInputs)
         # self.model.set_weights(self.tempWeights)
         # del self.tempWeights
         self.last = inputs[:,-self.windowsize:,:]
@@ -268,7 +272,7 @@ class Classifier:
     def loadBase(self, modelFile):
         with open(modelFile, "r") as f:
             (
-            inputShape,
+            self.inputShape,
             self.sigLevel,
             self.windowsize,
             self.useQuantiles,
@@ -285,7 +289,7 @@ class Classifier:
         self.invcov = np.array(self.invcov)
         p = self.mean.shape[-1]
         self.model = Predictor(p)
-        self.model(tf.ones(inputShape))
+        self.model(tf.ones(self.inputShape))
         weights = list(map(tf.Variable, weights))
         self.model.set_weights(weights)
 
