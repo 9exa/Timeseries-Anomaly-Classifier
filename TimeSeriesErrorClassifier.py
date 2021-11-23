@@ -169,6 +169,7 @@ class Classifier:
             d2 = distStat(errors, self.mean, self.invcov)
             self.threshold = np.quantile(d2, 1-self.sigLevel, axis = None)
         else:
+            nFeatures= self.mean.shape[-1]
             self.threshold = chi2.ppf(1-self.sigLevel, nFeatures)
 
     def fitModel(self, trainData, valData=None, doWarmup = True, **kwargs):
@@ -353,6 +354,7 @@ class FixedStepClassifier(Classifier):
             d2 = distStat(errors, self.mean, self.invcov)
             self.threshold = np.quantile(d2, 1-self.sigLevel, axis = 0)
         else:
+            nFeatures= self.mean.shape[-1]
             self.threshold = chi2.ppf(1-self.sigLevel, nFeatures)
     def load(modelFile):
         self = FixedStepClassifier()
